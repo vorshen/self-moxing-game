@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <style>
+        body,html {
+            margin: 0;
+            padding: 0;
+        }
+        .wrap {
+            margin: 20px auto;
+            width: 490px;
+            height: 490px;
+            position: relative;
+        }
+        .wrap>div {
+            background-color: gray;
+        }
+        .bg-block {
+            border: 10px solid transparent;
+            border-radius: 50%;
+            position: absolute;
+            width: 50px;
+            height: 50px;
+        }
+        .box {
+            position: absolute;
+            top: 550px;
+            width: 900px;
+            height: 300px;
+            left: 50%;
+            margin-left: -450px;
+            border: 1px solid black;
+            border-radius: 6px;
+            font-size: 0px;
+        }
+        .block-panel {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            display: inline-block;
+        }
+        .block-panel>div {
+            background-color: gray;
+        }
+        .block-core {
+            left: 110px;
+            top: 115px;
+        }
+        .orange>div {
+            background-color: orange;
+        }
+        .red>div {
+            background-color: red;
+        }
+        .active {
+            opacity: .3;
+        }
+
+        .score {
+            width: 300px;
+            height: 100px;
+            margin: 10px auto;
+            font-size: 24px;
+            line-height: 100px;
+            font-family: '微软雅黑';
+            transform: translate3D(-300px, -500px, 0);
+        }
+    </style>
+</head>
+<body>
+    <div id="wrap" class="wrap"></div>
+    <div id="box" class="box"></div>
+    <div class="score">你的分数：<span id="score">0</span></div>
+    <script>
+        var oWrap = document.getElementById('wrap');
+        var oBox = document.getElementById('box');
+        var oScore = document.getElementById('score');
+        var offset = [{
+            x: -40, y: -70
+        },{
+            x: 40, y: -70
+        },{
+            x: 80, y: 0
+        },{
+            x: 40, y: 70
+        },{
+            x: -40, y: 70
+        },{
+            x: -80, y: 0
+        }];
+        var globalBlock = Object.create(null);
+        var globalDoor = false;
+        var globalIsDrag = false;
+        var globalOffsetX = 0;
+        var globalOffsetY = 0;
+        var wrapX = oWrap.offsetLeft;
+        var wrapY = oWrap.offsetTop;
+        var xCenterArr = [
+            [160,240,320,400],
+            [120,200,280,360,440],
+            [80,160,240,320,400,480],
+            [40,120,200,280,360,440,520],
+            [80,160,240,320,400,480],
+            [120,200,280,360,440],
+            [160,240,320,400]
+        ];
+        var yCenterArr = [35,105,175,245,315,385,455];
+        var globalGamePanel = {};
+        var globalPositionDoor = false;
+
+        var globalValid_1 = [4,5,6,7,6,5,4];
+        var globalValid_2 = [
+            [0,0,1,0,2,0,3,0],
+            [0,1,1,1,2,1,3,1,4,0],
+            [0,2,1,2,2,2,3,2,4,1,5,0],
+            [0,3,1,3,2,3,3,3,4,2,5,1,6,0],
+            [1,4,2,4,3,4,4,3,5,2,6,1],
+            [2,5,3,5,4,4,5,3,6,2],
+            [3,6,4,5,5,4,6,3]
+        ];
+        var globalValid_3 = [
+            [0,3,1,4,2,5,3,6],
+            [0,2,1,3,2,4,3,5,4,5],
+            [0,1,1,2,2,3,3,4,4,4,5,4],
+            [0,0,1,1,2,2,3,3,4,3,5,3,6,3],
+            [1,0,2,1,3,2,4,2,5,2,6,2],
+            [2,0,3,1,4,1,5,1,6,1],
+            [3,0,4,0,5,0,6,0]
+        ];
+
+        var globalScore = 0;
+
+        init();
+
+        function init() {
+            uiInit();
+        }
+
+        function uiInit() {
+            globalGamePanel = new GamePanel();
+            randomBlock();
+            randomBlock();
+            randomBlock();
+        }
+
+        function GamePanel() {
+            var tmp = '';
+            var jMax = 4;
+            var dir = true;
+            var offsetX, offsetY;
+            var topArr = [0,70,140,210,280,350,420];
+            var leftArr = [120,80,40,0,40,80,120];
+            var frag = document.createDocumentFragment();
+
+            this.panelArr = [];
+
+            for(var i = 0; i < 7; i++) {
+                this.panelArr[i] = [];
+                for(var j = jMax; j > 0; j--) {
+                    tmp = document.createElement('div');
+                    tmp.className = 'bg-block';
+                    tmp.setAttribute('x', jMax - j);
+                    tmp.setAttribute('y', i);
+                    tmp.setAttribute('isEmpty', '1');
+                    tmp.style.top = topArr[i] + 'px';
+                    tmp.style.left = leftArr[i] + (jMax - j) * 80 + 'px';
+                    frag.appendChild(tmp);
+                    this.panelArr[i].push(tmp);
+                }
+                if(dir) {
+                    jMax++;
+                    if(jMax === 7) {
+                        dir = false;
+                    }
+                } else {
+                    jMax--;
+                }
+            }
+
+            oWrap.appendChild(frag);
+        }
+
+        function randomBlock() {
+            var r1,r2;
+            r1 = Math.random() * 10;
+            if(r1 < 1) {
+                new BlockPanel(0);
+            } else {
+                r2 = Math.random() * 10;
+                if(r2 < 2) {
+                    new BlockPanel(1);
+                } else if(r2 < 6) {
+                    new BlockPanel(2);
+                } else {
+                    new BlockPanel(3)
+                }
+            }
+        }
+
+        function BlockPanel(sign) {
+            var tmp = document.createElement('div');
+            /*var parentLeft = oBox.offsetLeft;
+            var parentTop = oBox.offsetTop;*/
+            tmp.className = 'block-panel';
+
+            switch(sign) {
+                case 0:
+                    tmp.setAttribute('haveCore', '1');
+                    var tmpLi = document.createElement('div');
+                    tmpLi.className = 'bg-block block-core';
+
+                    tmp.appendChild(tmpLi);
+                    oBox.appendChild(tmp);
+                    tmp.setAttribute('sign', 0);
+                    tmp.setAttribute('around', '');
+
+                    break;
+                case 1:
+                    tmp.setAttribute('haveCore', '1');
+                    var tmpLi = document.createElement('div');
+                    tmpLi.className = 'bg-block block-core';
+                    
+                    tmp.appendChild(tmpLi);
+                    oBox.appendChild(tmp);
+
+                    var tmpIndex = Math.floor(Math.random() * 3);
+                    var coreLeft = 110;
+                    var coreTop = 115;
+
+                    var tmpLi_1 = document.createElement('div');
+                    var tmpLi_2 = document.createElement('div');
+                    tmpLi_1.className = 'bg-block';
+                    tmpLi_2.className = 'bg-block';
+
+                    tmpLi_1.style.left = coreLeft + offset[tmpIndex].x + 'px';
+                    tmpLi_1.style.top = coreTop + offset[tmpIndex].y + 'px';
+                    tmpLi_2.style.left = coreLeft + offset[tmpIndex + 3].x + 'px';
+                    tmpLi_2.style.top = coreTop + offset[tmpIndex + 3].y + 'px';
+
+
+                    tmp.appendChild(tmpLi_1);
+                    tmp.appendChild(tmpLi_2);
+                    tmp.setAttribute('sign', 1);
+                    tmp.setAttribute('around', tmpIndex + '-' + (tmpIndex+3));
+
+                    break;
+                case 2:
+                    tmp.setAttribute('haveCore', '1');
+                    var tmpLi = document.createElement('div');
+                    tmpLi.className = 'bg-block block-core';
+
+                    tmp.appendChild(tmpLi);
+                    oBox.appendChild(tmp);
+
+                    var index = Math.floor(Math.random() * 6);
+                    var coreLeft = 110;
+                    var coreTop = 115;
+
+                    var tmpLi_1 = document.createElement('div');
+                    var tmpLi_2 = document.createElement('div');
+                    var tmpLi_3 = document.createElement('div');
+                    tmpLi_1.className = 'bg-block';
+                    tmpLi_2.className = 'bg-block';
+                    tmpLi_3.className = 'bg-block';
+
+                    var tmpArr = [0,1,2,3,4,5];
+                    var retArr = [];
+                    var tmpIndex;
+                    for(var i = 0; i < 3; i++) {
+                        tmpIndex = Math.floor(Math.random() * tmpArr.length);
+                        retArr = retArr.concat(tmpArr.splice(tmpIndex, 1));
+                    }
+                    tmpLi_1.style.left = coreLeft + offset[retArr[0]].x + 'px';
+                    tmpLi_1.style.top = coreTop + offset[retArr[0]].y + 'px';
+                    tmpLi_2.style.left = coreLeft + offset[retArr[1]].x + 'px';
+                    tmpLi_2.style.top = coreTop + offset[retArr[1]].y + 'px';
+                    tmpLi_3.style.left = coreLeft + offset[retArr[2]].x + 'px';
+                    tmpLi_3.style.top = coreTop + offset[retArr[2]].y + 'px';
+
+                    tmp.appendChild(tmpLi_1);
+                    tmp.appendChild(tmpLi_2);
+                    tmp.appendChild(tmpLi_3);
+                    tmp.setAttribute('sign', 2);
+                    tmp.setAttribute('around', retArr.join('-'));
+
+                    break;
+                case 3:
+                    tmp.setAttribute('haveCore', '0');
+                    oBox.appendChild(tmp);
+
+                    var tmpLi_1 = document.createElement('div');
+                    var tmpLi_2 = document.createElement('div');
+                    var tmpLi_3 = document.createElement('div');
+                    var tmpLi_4 = document.createElement('div');
+                    tmpLi_1.className = 'bg-block';
+                    tmpLi_2.className = 'bg-block';
+                    tmpLi_3.className = 'bg-block';
+                    tmpLi_4.className = 'bg-block';
+
+                    var coreLeft = 110;
+                    var coreTop = 115;
+                    var tmpArr = [0,1,2,3,4,5];
+                    var retArr = [];
+                    var tmpIndex;
+
+                    tmpIndex = Math.floor(Math.random() * tmpArr.length);
+                    retArr.push(tmpArr[tmpIndex++]);
+                    for(var i = 0; i < 3; i++) {
+                        if(tmpIndex > 5) tmpIndex = 0;
+                        retArr.push(tmpArr[tmpIndex++]);
+                    }
+                    tmpLi_1.style.left = coreLeft + offset[retArr[0]].x + 'px';
+                    tmpLi_1.style.top = coreTop + offset[retArr[0]].y + 'px';
+                    tmpLi_2.style.left = coreLeft + offset[retArr[1]].x + 'px';
+                    tmpLi_2.style.top = coreTop + offset[retArr[1]].y + 'px';
+                    tmpLi_3.style.left = coreLeft + offset[retArr[2]].x + 'px';
+                    tmpLi_3.style.top = coreTop + offset[retArr[2]].y + 'px';
+                    tmpLi_4.style.left = coreLeft + offset[retArr[3]].x + 'px';
+                    tmpLi_4.style.top = coreTop + offset[retArr[3]].y + 'px';
+
+                    tmp.appendChild(tmpLi_1);
+                    tmp.appendChild(tmpLi_2);
+                    tmp.appendChild(tmpLi_3);
+                    tmp.appendChild(tmpLi_4);
+                    tmp.setAttribute('sign', 3);
+                    tmp.setAttribute('around', retArr.join('-'));
+
+                    break;
+            }
+
+            tmp.onmousedown = function(ev) {
+                var self = this;
+                var panelX = 0;
+                var panelY = 0;
+
+                globalBlock.dom = this.cloneNode(true);
+                globalBlock.canDown = false;
+                document.body.appendChild(globalBlock.dom);
+                /*globalBlock.x = ev.clientX - parentLeft - this.offsetLeft - 1;
+                globalBlock.y = ev.clientY - parentTop - 1;*/
+
+                globalBlock.disX = ev.clientX - 150;
+                globalBlock.disY = ev.clientY - 150;
+                globalBlock.dom.style.position = 'absolute';
+                globalBlock.dom.className = 'block-panel orange';
+
+                /*globalBlock.dom.style.left = ev.clientX - globalBlock.x + 'px';
+                globalBlock.dom.style.top = ev.clientY - globalBlock.y + 'px';*/
+                globalBlock.dom.style.left = ev.clientX - 150 + 'px';
+                globalBlock.dom.style.top = ev.clientY - 150 + 'px';
+                globalBlock.around = this.getAttribute('around').split('-');
+                globalBlock.isCenterCore = this.getAttribute('haveCore') === '1' ? true : false;
+                globalBlock.sign = Number(this.getAttribute('sign'));
+
+                this.className = 'block-panel active';
+                globalIsDrag = true;
+
+                document.onmousemove = function(ev) {
+                    globalBlock.dom.style.left = ev.clientX - 150 + 'px';
+                    globalBlock.dom.style.top = ev.clientY - 150 + 'px';
+                    
+                    panelX = ev.clientX - wrapX;
+                    panelY = ev.clientY - wrapY;
+                }
+
+                document.onmouseup = function() {
+                    clearInterval(globalBlock.timer);
+                    if(globalBlock.canDown && globalIsDrag && globalPositionDoor) {
+                        oBox.removeChild(self);
+                        randomBlock();
+                        for(var i = 0; i < globalGamePanel.readyDown.length; i++) {
+                            var tmpY = globalGamePanel.readyDown[i][0];
+                            var tmpX = globalGamePanel.readyDown[i][1];
+                            globalGamePanel.panelArr[tmpY][tmpX].style.backgroundColor = 'blue';
+                            globalGamePanel.panelArr[tmpY][tmpX].setAttribute('isEmpty', '0');
+                        }
+
+                        var tmpArr = globalGamePanel.panelArr;
+                        // 检验是否有可以消除的方块
+                        for(var i = 0; i < 7; i++) {
+                            for(var j = 0; j < globalValid_1[i]; j++) {
+                                if(tmpArr[i][j].getAttribute('isEmpty') === '1') {
+                                    break;
+                                }
+                            }
+                            if(j === globalValid_1[i]) {
+                                globalScore += j * 50;
+                                oScore.innerHTML = globalScore;
+                                for(var k = 0; k < globalValid_1[i]; k++) {
+                                    tmpArr[i][k].style.backgroundColor = 'gray';
+                                    tmpArr[i][k].setAttribute('isEmpty', '1');
+                                }
+                            }
+                        }
+
+                        for(i = 0; i < 7; i++) {
+                            for(j = 0; j < globalValid_2[i].length; j += 2) {
+                                if(tmpArr[globalValid_2[i][j]][globalValid_2[i][j+1]].getAttribute('isEmpty') === '1') {
+                                    break;
+                                }
+                            }
+                            if(j === globalValid_2[i].length) {
+                                globalScore += (j/2 * 50);
+                                oScore.innerHTML = globalScore;
+                                for(k = 0; k < globalValid_2[i].length; k += 2) {
+                                    tmpArr[globalValid_2[i][k]][globalValid_2[i][k+1]].style.backgroundColor = 'gray';
+                                    tmpArr[globalValid_2[i][k]][globalValid_2[i][k+1]].setAttribute('isEmpty', '1');
+                                    
+                                }
+                            }
+                        }
+
+                        for(i = 0; i < 7; i++) {
+                            for(j = 0; j < globalValid_3[i].length; j += 2) {
+                                if(tmpArr[globalValid_3[i][j]][globalValid_3[i][j+1]].getAttribute('isEmpty') === '1') {
+                                    break;
+                                }
+                            }
+                            if(j === globalValid_3[i].length) {
+                                globalScore += (j/2 * 50);
+                                oScore.innerHTML = globalScore;
+                                for(k = 0; k < globalValid_3[i].length; k += 2) {
+                                    tmpArr[globalValid_3[i][k]][globalValid_3[i][k+1]].style.backgroundColor = 'gray';
+                                    tmpArr[globalValid_3[i][k]][globalValid_3[i][k+1]].setAttribute('isEmpty', '1');
+                                    
+                                }
+                            }
+                        }
+                    }
+
+                    self.className = 'block-panel';
+                    globalIsDrag = false
+                    document.body.removeChild(globalBlock.dom);
+                    globalBlock = Object.create(null);
+                    document.onmousemove = null;
+                    document.onmouseup = null;
+                }
+
+                globalBlock.timer = setInterval(function() {
+                    globalBlock.canDown = true;
+                    globalPositionDoor = false;
+                    globalGamePanel.readyDown = [];
+                    for(var i = 0; i < 7; i++) {
+                        if(Math.abs(panelY - yCenterArr[i]) < 10) {
+                            for(var j = 0; j < xCenterArr[i].length; j++) {
+                                if(Math.abs(panelX - xCenterArr[i][j]) < 10) {
+                                    globalPositionDoor = true;
+
+                                    if(globalBlock.isCenterCore) {
+                                        globalGamePanel.readyDown.push([i,j]);
+                                        if(globalGamePanel.panelArr[i][j].getAttribute('isEmpty') !== '1') {
+                                            // fail
+                                            globalBlock.canDown = false;
+                                            break;
+                                        }
+                                    }
+
+                                    for(var k = 0; k < globalBlock.around.length; k++) {
+                                        if(globalBlock.sign === 0) {
+                                            break;
+                                        }
+                                        var aroundIndex = Number(globalBlock.around[k]);
+                                        var currX = Number(globalGamePanel.panelArr[i][j].getAttribute('x'));
+                                        var currY = Number(globalGamePanel.panelArr[i][j].getAttribute('y'));
+                                        switch(aroundIndex) {
+                                            case 0:
+                                                if(currY < 4) {
+                                                    currX--;
+                                                }
+                                                currY--;
+                                                break;
+                                            case 1:
+                                                if(currY > 3) {
+                                                    currX++;
+                                                }
+                                                currY--;
+                                                break;
+                                            case 2:
+                                                currX++;
+                                                break;
+                                            case 3:
+                                                if(currY < 3) {
+                                                    currX++;
+                                                }
+                                                currY++;
+                                                break;
+                                            case 4:
+                                                if(currY >= 3) {
+                                                    currX--;
+                                                }
+                                                currY++;
+                                                break;
+                                            case 5:
+                                                currX--;
+                                                break;
+                                        }
+
+                                        if(currY < 0 || currY > 6 || currX < 0 || currX > 6) {
+                                            // fail
+                                            globalBlock.canDown = false;
+                                            break;
+                                        } else {
+                                            if(currY === 0 || currY === 6) {
+                                                if(currX > 3) {
+                                                    // fail
+                                                    globalBlock.canDown = false;
+                                                    break;
+                                                }
+                                            } else if(currY === 1 || currY === 5) {
+                                                if(currX > 4) {
+                                                    // fail
+                                                    globalBlock.canDown = false;
+                                                    break;
+                                                }
+                                            } else if(currY === 2 || currY === 4) {
+                                                if(currX > 5) {
+                                                    // fail
+                                                    globalBlock.canDown = false;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if(globalGamePanel.panelArr[currY][currX].getAttribute('isEmpty') !== '1') {
+                                            // fail
+                                            globalBlock.canDown = false;
+                                            break;
+                                        }
+
+                                        globalGamePanel.readyDown.push([currY, currX]);
+
+                                    }
+
+                                    // 到这里代表着块是可以放下来的！
+                                    if(globalBlock.canDown && globalPositionDoor) {
+                                        globalBlock.dom.className = 'block-panel red';
+                                    }
+                                    
+                                }
+                            }
+                        }
+                    }
+
+                    if(!globalBlock.canDown || !globalPositionDoor) {
+                        globalBlock.dom.className = 'block-panel orange';
+                    }
+                }, 300);
+
+                return false;
+            }
+
+        }
+    </script>
+</body>
+</html>
